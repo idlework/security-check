@@ -1,4 +1,4 @@
-use crate::check::{Category, CheckResult, Status};
+use crate::check::{count_by_status, Category, CheckResult, Status};
 use crate::scoring::Score;
 use colored::Colorize;
 
@@ -53,10 +53,7 @@ pub fn print_results(results: &[CheckResult], verbose: bool) {
 }
 
 pub fn print_summary(results: &[CheckResult], is_root: bool) {
-    let passed = results.iter().filter(|r| r.status == Status::Pass).count();
-    let warned = results.iter().filter(|r| r.status == Status::Warn).count();
-    let failed = results.iter().filter(|r| r.status == Status::Fail).count();
-    let skipped = results.iter().filter(|r| r.status == Status::Skip).count();
+    let (passed, warned, failed, skipped) = count_by_status(results);
 
     let score = Score::from_results(results);
     let pct = score.percentage();

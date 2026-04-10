@@ -9,25 +9,26 @@ pub fn run_checks() -> Vec<CheckResult> {
     ]
 }
 
-fn extract_field(output: &str, field: &str) -> Option<String> {
+fn extract_field<'a>(output: &'a str, field: &str) -> Option<&'a str> {
     output
         .lines()
         .find(|l| l.contains(field))
-        .map(|l| l.split(':').skip(1).collect::<Vec<&str>>().join(":").trim().to_string())
+        .and_then(|l| l.split_once(':'))
+        .map(|(_, v)| v.trim())
 }
 
 fn check_system_info(hw_output: &str) -> CheckResult {
-    let model = extract_field(hw_output, "Model Name").unwrap_or_else(|| "Unknown".into());
-    let chip = extract_field(hw_output, "Chip").unwrap_or_else(|| {
-        extract_field(hw_output, "Processor Name").unwrap_or_else(|| "Unknown".into())
-    });
-    let memory = extract_field(hw_output, "Memory").unwrap_or_else(|| "Unknown".into());
-    let serial = extract_field(hw_output, "Serial Number")
+    let model = extract_field(hw_output, "Model Name").unwrap_or("Unknown");
+    let chip = extract_field(hw_output, "Chip")
+        .or_else(|| extract_field(hw_output, "Processor Name"))
+        .unwrap_or("Unknown");
+    let memory = extract_field(hw_output, "Memory").unwrap_or("Unknown");
+    let serial: String = extract_field(hw_output, "Serial Number")
         .map(|s| {
             if s.len() > 4 {
                 format!("...{}", &s[s.len() - 4..])
             } else {
-                s
+                s.to_string()
             }
         })
         .unwrap_or_else(|| "Unknown".into());
@@ -42,23 +43,14 @@ fn check_system_info(hw_output: &str) -> CheckResult {
 
 fn check_activation_lock(hw_output: &str) -> CheckResult {
     match extract_field(hw_output, "Activation Lock Status") {
-        Some(status) => {
-            if status.contains("Enabled") {
-                CheckResult::pass(
-                    Category::Hardware,
-                    "Activation Lock",
-                    "Activation Lock is enabled",
-                )
+        Some(s) if s.contains("Enabled") => {
+            CheckResult::pass(Category::Hardware, "Activation Lock", "Activation Lock is enabled")
                 .with_weight(5)
-            } else {
-                CheckResult::warn(
-                    Category::Hardware,
-                    "Activation Lock",
-                    "Activation Lock is disabled",
-                )
+        }
+        Some(_) => {
+            CheckResult::warn(Category::Hardware, "Activation Lock", "Activation Lock is disabled")
                 .with_weight(5)
                 .with_fix_hint("Enable Find My Mac in System Settings > Apple ID > iCloud > Find My Mac")
-            }
         }
         None => CheckResult::skip(
             Category::Hardware,

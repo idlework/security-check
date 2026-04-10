@@ -6,8 +6,8 @@ pub fn run_checks(ctx: &Context) -> Vec<CheckResult> {
 
     vec![
         check_ssh(ctx),
-        check_sharing_service(&services, "com.apple.smbd", "File Sharing", "File Sharing"),
-        check_sharing_service(&services, "com.apple.screensharing", "Screen Sharing", "Screen Sharing"),
+        check_sharing_service(&services, "com.apple.smbd", "File Sharing"),
+        check_sharing_service(&services, "com.apple.screensharing", "Screen Sharing"),
         check_remote_management(),
         check_dns(),
     ]
@@ -44,20 +44,13 @@ fn check_ssh(ctx: &Context) -> CheckResult {
     }
 }
 
-fn check_sharing_service(
-    services: &str,
-    service_id: &str,
-    name: &str,
-    settings_name: &str,
-) -> CheckResult {
-    let is_running = services.lines().any(|l| l.contains(service_id));
-
-    if is_running {
+fn check_sharing_service(services: &str, service_id: &str, name: &str) -> CheckResult {
+    if services.lines().any(|l| l.contains(service_id)) {
         CheckResult::warn(Category::Network, name, &format!("{} is active", name))
             .with_weight(5)
             .with_fix_hint(&format!(
                 "Disable in System Settings > General > Sharing > {}",
-                settings_name
+                name
             ))
     } else {
         CheckResult::pass(Category::Network, name, &format!("{} is disabled", name))

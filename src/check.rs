@@ -65,10 +65,32 @@ impl Category {
     }
 }
 
+impl Category {
+    pub fn matches_filter(&self, filter: &str) -> bool {
+        self.label().to_lowercase().replace(' ', "_").contains(filter)
+    }
+}
+
 impl fmt::Display for Category {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.label())
     }
+}
+
+pub fn count_by_status(results: &[CheckResult]) -> (usize, usize, usize, usize) {
+    let mut passed = 0;
+    let mut warned = 0;
+    let mut failed = 0;
+    let mut skipped = 0;
+    for r in results {
+        match r.status {
+            Status::Pass => passed += 1,
+            Status::Warn => warned += 1,
+            Status::Fail => failed += 1,
+            Status::Skip => skipped += 1,
+        }
+    }
+    (passed, warned, failed, skipped)
 }
 
 #[derive(Debug, Clone, Serialize)]

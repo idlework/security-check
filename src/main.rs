@@ -4,7 +4,7 @@ mod output;
 mod runner;
 mod scoring;
 
-use check::{Category, CheckResult, Status};
+use check::{count_by_status, Category, CheckResult};
 use clap::Parser;
 use runner::Context;
 use scoring::Score;
@@ -51,12 +51,13 @@ struct JsonSummary {
 
 impl JsonSummary {
     fn from_results(results: &[CheckResult]) -> Self {
+        let (passed, warnings, failures, skipped) = count_by_status(results);
         let score = Score::from_results(results);
         Self {
-            passed: results.iter().filter(|r| r.status == Status::Pass).count(),
-            warnings: results.iter().filter(|r| r.status == Status::Warn).count(),
-            failures: results.iter().filter(|r| r.status == Status::Fail).count(),
-            skipped: results.iter().filter(|r| r.status == Status::Skip).count(),
+            passed,
+            warnings,
+            failures,
+            skipped,
             score_pct: score.percentage(),
             grade: score.grade().to_string(),
         }
@@ -123,7 +124,7 @@ fn main() {
 
     if let Some(ref filter) = cli.category {
         let filter = filter.to_lowercase().replace([' ', '-'], "_");
-        results.retain(|r| format!("{:?}", r.category).to_lowercase().contains(&filter));
+        results.retain(|r| r.category.matches_filter(&filter));
     }
 
     if cli.json {
