@@ -80,7 +80,7 @@ pub fn print_summary(results: &[CheckResult], is_root: bool) {
     println!("{}", summary);
     println!();
 
-    let score_line = format!("  Score: {}/{} ({})", score, possible, letter);
+    let score_line = format!("  Score: {}% ({}) -- {}/{} points", pct, letter, score, possible);
     let colored_score = if pct >= 90 {
         score_line.green().bold()
     } else if pct >= 70 {
