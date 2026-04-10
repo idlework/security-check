@@ -1,0 +1,151 @@
+use serde::Serialize;
+use std::fmt;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Status {
+    Pass,
+    Warn,
+    Fail,
+    Skip,
+}
+
+impl fmt::Display for Status {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Status::Pass => write!(f, "PASS"),
+            Status::Warn => write!(f, "WARN"),
+            Status::Fail => write!(f, "FAIL"),
+            Status::Skip => write!(f, "SKIP"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Category {
+    SystemProtection,
+    Encryption,
+    Firewall,
+    MalwareProtection,
+    SoftwareUpdates,
+    Network,
+    Hardware,
+    UserSecurity,
+    Privacy,
+}
+
+impl Category {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Category::SystemProtection => "System Protection",
+            Category::Encryption => "Encryption",
+            Category::Firewall => "Firewall",
+            Category::MalwareProtection => "Malware Protection",
+            Category::SoftwareUpdates => "Software Updates",
+            Category::Network => "Network",
+            Category::Hardware => "Hardware",
+            Category::UserSecurity => "User Security",
+            Category::Privacy => "Privacy",
+        }
+    }
+
+    pub fn all() -> &'static [Category] {
+        &[
+            Category::SystemProtection,
+            Category::Encryption,
+            Category::Firewall,
+            Category::MalwareProtection,
+            Category::SoftwareUpdates,
+            Category::Network,
+            Category::Hardware,
+            Category::UserSecurity,
+            Category::Privacy,
+        ]
+    }
+}
+
+impl fmt::Display for Category {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.label())
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CheckResult {
+    pub category: Category,
+    pub name: String,
+    pub status: Status,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fix_hint: Option<String>,
+    #[serde(skip)]
+    pub weight: u32,
+}
+
+impl CheckResult {
+    pub fn pass(category: Category, name: &str, message: &str) -> Self {
+        Self {
+            category,
+            name: name.to_string(),
+            status: Status::Pass,
+            message: message.to_string(),
+            detail: None,
+            fix_hint: None,
+            weight: 5,
+        }
+    }
+
+    pub fn warn(category: Category, name: &str, message: &str) -> Self {
+        Self {
+            category,
+            name: name.to_string(),
+            status: Status::Warn,
+            message: message.to_string(),
+            detail: None,
+            fix_hint: None,
+            weight: 5,
+        }
+    }
+
+    pub fn fail(category: Category, name: &str, message: &str) -> Self {
+        Self {
+            category,
+            name: name.to_string(),
+            status: Status::Fail,
+            message: message.to_string(),
+            detail: None,
+            fix_hint: None,
+            weight: 5,
+        }
+    }
+
+    pub fn skip(category: Category, name: &str, message: &str) -> Self {
+        Self {
+            category,
+            name: name.to_string(),
+            status: Status::Skip,
+            message: message.to_string(),
+            detail: None,
+            fix_hint: None,
+            weight: 0,
+        }
+    }
+
+    pub fn with_weight(mut self, weight: u32) -> Self {
+        self.weight = weight;
+        self
+    }
+
+    pub fn with_detail(mut self, detail: &str) -> Self {
+        self.detail = Some(detail.to_string());
+        self
+    }
+
+    pub fn with_fix_hint(mut self, hint: &str) -> Self {
+        self.fix_hint = Some(hint.to_string());
+        self
+    }
+}
