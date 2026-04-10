@@ -63,6 +63,8 @@ fn run_all_checks(_ctx: &Context) -> Vec<CheckResult> {
     results.extend(checks::system::run_checks());
     results.extend(checks::encryption::run_checks());
     results.extend(checks::firewall::run_checks());
+    results.extend(checks::malware::run_checks());
+    results.extend(checks::updates::run_checks());
     results
 }
 
