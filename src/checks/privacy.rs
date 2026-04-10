@@ -163,6 +163,13 @@ fn check_tcc(home: &str, name: &str, service: &str) -> CheckResult {
     );
 
     match run_command("sqlite3", &[&user_db, &query]) {
+        Ok(output) if output.contains("Error:") || output.contains("authorization denied") => {
+            CheckResult::skip(
+                Category::Privacy,
+                name,
+                &format!("TCC database not accessible (requires Full Disk Access)"),
+            )
+        }
         Ok(output) => {
             let apps: Vec<&str> = output
                 .lines()
