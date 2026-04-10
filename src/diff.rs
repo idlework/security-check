@@ -39,26 +39,12 @@ pub fn print_diff(current: &[CheckResult], previous: &[CheckResult]) {
     for check in current {
         match prev_map.get(check.name.as_str()) {
             Some(prev_status) if **prev_status != check.status => {
-                let arrow = match (&check.status, prev_status) {
-                    (Status::Pass, _) => format!(
-                        "  {} {} → {}",
-                        check.name,
-                        format!("{}", prev_status).red(),
-                        format!("{}", check.status).green(),
-                    ),
-                    (Status::Fail, _) => format!(
-                        "  {} {} → {}",
-                        check.name,
-                        format!("{}", prev_status).green(),
-                        format!("{}", check.status).red(),
-                    ),
-                    _ => format!(
-                        "  {} {} → {}",
-                        check.name,
-                        prev_status,
-                        check.status,
-                    ),
-                };
+                let arrow = format!(
+                    "  {} {} → {}",
+                    check.name,
+                    colorize_status(prev_status),
+                    colorize_status(&check.status),
+                );
                 changes.push(arrow);
             }
             None if check.status != Status::Skip => {
@@ -85,4 +71,14 @@ pub fn print_diff(current: &[CheckResult], previous: &[CheckResult]) {
         }
     }
     println!();
+}
+
+fn colorize_status(status: &Status) -> colored::ColoredString {
+    let s = format!("{}", status);
+    match status {
+        Status::Pass => s.green().bold(),
+        Status::Warn => s.yellow().bold(),
+        Status::Fail => s.red().bold(),
+        Status::Skip => s.dimmed(),
+    }
 }

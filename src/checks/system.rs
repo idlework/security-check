@@ -1,11 +1,11 @@
 use crate::check::{Category, CheckResult};
 use crate::runner::run_command;
 
-pub fn run_checks() -> Vec<CheckResult> {
+pub fn run_checks(hw_output: &str) -> Vec<CheckResult> {
     vec![
         check_sip(),
         check_gatekeeper(),
-        check_secure_boot(),
+        check_secure_boot(hw_output),
         check_custom_certificates(),
     ]
 }
@@ -49,9 +49,7 @@ fn check_gatekeeper() -> CheckResult {
     }
 }
 
-fn check_secure_boot() -> CheckResult {
-    let hw_output = run_command("system_profiler", &["SPHardwareDataType"]).unwrap_or_default();
-
+fn check_secure_boot(hw_output: &str) -> CheckResult {
     let boot_mode = hw_output
         .lines()
         .find(|l| l.contains("Secure Boot"))

@@ -1,4 +1,4 @@
-use crate::check::{Category, CheckResult};
+use crate::check::{truncate_list, Category, CheckResult};
 use crate::runner::{run_command, run_defaults_read};
 use std::fs;
 use std::path::Path;
@@ -20,9 +20,9 @@ pub fn run_checks() -> Vec<CheckResult> {
         ),
         check_login_items(),
         check_analytics_sharing(),
-        check_tcc("Accessibility Access", "kTCCServiceAccessibility"),
-        check_tcc("Screen Recording", "kTCCServiceScreenCapture"),
-        check_tcc("Full Disk Access", "kTCCServiceSystemPolicyAllFiles"),
+        check_tcc(&home, "Accessibility Access", "kTCCServiceAccessibility"),
+        check_tcc(&home, "Screen Recording", "kTCCServiceScreenCapture"),
+        check_tcc(&home, "Full Disk Access", "kTCCServiceSystemPolicyAllFiles"),
     ]
 }
 
@@ -83,17 +83,10 @@ fn list_plists(dir_path: &str, name: &str, filter: fn(&str) -> bool) -> CheckRes
             .with_weight(0);
     }
 
-    let display: String = entries.iter().take(5).cloned().collect::<Vec<_>>().join(", ");
-    let suffix = if entries.len() > 5 {
-        format!(" (+{} more)", entries.len() - 5)
-    } else {
-        String::new()
-    };
-
     CheckResult::pass(
         Category::Privacy,
         name,
-        &format!("{} item(s): {}{}", entries.len(), display, suffix),
+        &format!("{} item(s): {}", entries.len(), truncate_list(&entries, 5)),
     )
     .with_weight(0)
     .with_detail("Review these for any unexpected or suspicious entries")
@@ -115,16 +108,10 @@ fn check_login_items() -> CheckResult {
                 CheckResult::pass(Category::Privacy, "Login Items", "No login items configured")
                     .with_weight(0)
             } else {
-                let display = items.iter().take(5).copied().collect::<Vec<_>>().join(", ");
-                let suffix = if items.len() > 5 {
-                    format!(" (+{} more)", items.len() - 5)
-                } else {
-                    String::new()
-                };
                 CheckResult::pass(
                     Category::Privacy,
                     "Login Items",
-                    &format!("{} item(s): {}{}", items.len(), display, suffix),
+                    &format!("{} item(s): {}", items.len(), truncate_list(&items, 5)),
                 )
                 .with_weight(0)
                 .with_detail("Review these for any unexpected applications")
@@ -164,8 +151,7 @@ fn check_analytics_sharing() -> CheckResult {
     }
 }
 
-fn check_tcc(name: &str, service: &str) -> CheckResult {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+fn check_tcc(home: &str, name: &str, service: &str) -> CheckResult {
     let user_db = format!(
         "{}/Library/Application Support/com.apple.TCC/TCC.db",
         home
@@ -191,16 +177,10 @@ fn check_tcc(name: &str, service: &str) -> CheckResult {
                 )
                 .with_weight(0)
             } else {
-                let display: Vec<&str> = apps.iter().take(5).copied().collect();
-                let suffix = if apps.len() > 5 {
-                    format!(" (+{} more)", apps.len() - 5)
-                } else {
-                    String::new()
-                };
                 CheckResult::pass(
                     Category::Privacy,
                     name,
-                    &format!("{} app(s): {}{}", apps.len(), display.join(", "), suffix),
+                    &format!("{} app(s): {}", apps.len(), truncate_list(&apps, 5)),
                 )
                 .with_weight(0)
                 .with_detail("Review these permissions in System Settings > Privacy & Security")

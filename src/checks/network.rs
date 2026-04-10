@@ -1,4 +1,4 @@
-use crate::check::{Category, CheckResult};
+use crate::check::{truncate_list, Category, CheckResult};
 use crate::runner::{run_command, Context};
 use std::fs;
 use std::path::Path;
@@ -159,16 +159,11 @@ fn check_listening_ports() -> CheckResult {
                 )
                 .with_weight(3)
             } else {
-                let display: String = unexpected.iter().take(5).map(|s| s.as_str()).collect::<Vec<_>>().join(", ");
-                let suffix = if unexpected.len() > 5 {
-                    format!(" (+{} more)", unexpected.len() - 5)
-                } else {
-                    String::new()
-                };
+                let unexpected_strs: Vec<&str> = unexpected.iter().map(|s| s.as_str()).collect();
                 CheckResult::warn(
                     Category::Network,
                     "Listening Ports",
-                    &format!("{} unexpected: {}{}", unexpected.len(), display, suffix),
+                    &format!("{} unexpected: {}", unexpected.len(), truncate_list(&unexpected_strs, 5)),
                 )
                 .with_weight(3)
                 .with_detail(&listeners.join(", "))

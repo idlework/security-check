@@ -150,3 +150,14 @@ impl CheckResult {
         self
     }
 }
+
+/// Format a list with truncation: "a, b, c (+2 more)"
+pub fn truncate_list(items: &[impl AsRef<str>], max: usize) -> String {
+    let display: Vec<&str> = items.iter().take(max).map(|s| s.as_ref()).collect();
+    let suffix = if items.len() > max {
+        format!(" (+{} more)", items.len() - max)
+    } else {
+        String::new()
+    };
+    format!("{}{}", display.join(", "), suffix)
+}

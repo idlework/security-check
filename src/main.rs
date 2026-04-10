@@ -98,14 +98,17 @@ fn gather_system_info() -> String {
 }
 
 fn run_all_checks(ctx: &Context) -> Vec<CheckResult> {
+    let hw_output = runner::run_command("system_profiler", &["SPHardwareDataType"])
+        .unwrap_or_default();
+
     let mut results = Vec::new();
-    results.extend(checks::system::run_checks());
+    results.extend(checks::system::run_checks(&hw_output));
     results.extend(checks::encryption::run_checks());
     results.extend(checks::firewall::run_checks());
     results.extend(checks::malware::run_checks());
     results.extend(checks::updates::run_checks());
     results.extend(checks::network::run_checks(ctx));
-    results.extend(checks::hardware::run_checks());
+    results.extend(checks::hardware::run_checks(&hw_output));
     results.extend(checks::user_security::run_checks());
     results.extend(checks::privacy::run_checks());
     results
@@ -135,13 +138,13 @@ fn main() {
     let previous = if cli.diff { diff::load_previous() } else { None };
 
     if cli.json {
+        diff::save_results(&results);
         let report = JsonReport {
             system_info: gather_system_info(),
             summary: JsonSummary::from_results(&results),
-            checks: results.clone(),
+            checks: results,
         };
         println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
-        diff::save_results(&results);
         return;
     }
 

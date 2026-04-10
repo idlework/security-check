@@ -2,8 +2,7 @@ use crate::check::{Category, CheckResult};
 use crate::runner::run_command;
 use std::time::SystemTime;
 
-pub fn run_checks() -> Vec<CheckResult> {
-    let hw_output = run_command("system_profiler", &["SPHardwareDataType"]).unwrap_or_default();
+pub fn run_checks(hw_output: &str) -> Vec<CheckResult> {
     vec![
         check_system_info(&hw_output),
         check_activation_lock(&hw_output),
