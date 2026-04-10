@@ -17,6 +17,7 @@ pub fn run_checks(ctx: &Context) -> Vec<CheckResult> {
         check_listening_ports(),
         check_ssh_keys(&home),
         check_authorized_keys(&home),
+        check_vpn(),
     ]
 }
 
@@ -276,6 +277,40 @@ fn check_authorized_keys(home: &str) -> CheckResult {
             Category::Network,
             "Authorized Keys",
             "Could not read authorized_keys",
+        ),
+    }
+}
+
+fn check_vpn() -> CheckResult {
+    match run_command("scutil", &["--nc", "list"]) {
+        Ok(output) => {
+            let vpns: Vec<&str> = output
+                .lines()
+                .filter(|l| l.contains("(Disconnected)") || l.contains("(Connected)"))
+                .collect();
+
+            if vpns.is_empty() {
+                CheckResult::warn(
+                    Category::Network,
+                    "VPN Configuration",
+                    "No VPN configured",
+                )
+                .with_weight(3)
+                .with_fix_hint("Consider setting up a VPN for network privacy")
+            } else {
+                let connected = vpns.iter().filter(|l| l.contains("(Connected)")).count();
+                let msg = if connected > 0 {
+                    format!("{} VPN(s) configured, {} connected", vpns.len(), connected)
+                } else {
+                    format!("{} VPN(s) configured, none active", vpns.len())
+                };
+                CheckResult::pass(Category::Network, "VPN Configuration", &msg).with_weight(3)
+            }
+        }
+        Err(_) => CheckResult::skip(
+            Category::Network,
+            "VPN Configuration",
+            "Could not check VPN configuration",
         ),
     }
 }
