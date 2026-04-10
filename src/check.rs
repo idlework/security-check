@@ -63,9 +63,7 @@ impl Category {
             Category::Privacy,
         ]
     }
-}
 
-impl Category {
     pub fn matches_filter(&self, filter: &str) -> bool {
         self.label().to_lowercase().replace(' ', "_").contains(filter)
     }

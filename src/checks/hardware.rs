@@ -25,8 +25,9 @@ fn check_system_info(hw_output: &str) -> CheckResult {
     let memory = extract_field(hw_output, "Memory").unwrap_or("Unknown");
     let serial: String = extract_field(hw_output, "Serial Number")
         .map(|s| {
-            if s.len() > 4 {
-                format!("...{}", &s[s.len() - 4..])
+            let chars: Vec<char> = s.chars().collect();
+            if chars.len() > 4 {
+                format!("...{}", chars[chars.len() - 4..].iter().collect::<String>())
             } else {
                 s.to_string()
             }
