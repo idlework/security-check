@@ -90,9 +90,8 @@ fn check_time_machine() -> CheckResult {
 
 fn check_backup_recency() -> CheckResult {
     match run_command("tmutil", &["latestbackup"]) {
-        Ok(output) => {
+        Ok(output) if output.trim().starts_with('/') => {
             let path = output.trim();
-            // Try to get modification time of the backup path
             match std::fs::metadata(path).and_then(|m| m.modified()) {
                 Ok(modified) => {
                     let days = SystemTime::now()
@@ -136,6 +135,13 @@ fn check_backup_recency() -> CheckResult {
                 }
             }
         }
+        Ok(output) => CheckResult::warn(
+            Category::Hardware,
+            "Backup Recency",
+            &format!("Backup error: {}", output.trim().chars().take(80).collect::<String>()),
+        )
+        .with_weight(5)
+        .with_fix_hint("Check Time Machine backup destination connectivity"),
         Err(_) => CheckResult::skip(
             Category::Hardware,
             "Backup Recency",
