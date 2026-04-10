@@ -1,4 +1,4 @@
-use crate::check::{count_by_status, Category, CheckResult, Status};
+use crate::check::{count_by_status, CheckResult, Status};
 use crate::scoring::Score;
 use colored::Colorize;
 
@@ -11,45 +11,41 @@ pub fn print_header(system_info: &str) {
     println!();
 }
 
-pub fn print_results(results: &[CheckResult], verbose: bool) {
-    for category in Category::all() {
-        let checks: Vec<&CheckResult> =
-            results.iter().filter(|r| r.category == *category).collect();
-        if checks.is_empty() {
-            continue;
-        }
-
-        println!("  {}", category.label().white().bold());
-        println!();
-
-        for check in &checks {
-            let status_str = format!(" {:4} ", check.status);
-            let colored_status = match check.status {
-                Status::Pass => status_str.green().bold(),
-                Status::Warn => status_str.yellow().bold(),
-                Status::Fail => status_str.red().bold(),
-                Status::Skip => status_str.dimmed(),
-            };
-
-            println!(
-                "  {}  {:<34}  {}",
-                colored_status, check.name, check.message
-            );
-
-            if verbose {
-                if let Some(detail) = &check.detail {
-                    println!("  {}  {}", "      ", detail.dimmed());
-                }
-            }
-
-            if let (Status::Warn | Status::Fail, Some(hint)) =
-                (check.status, &check.fix_hint)
-            {
-                println!("  {}  {}", "      ", format!("Hint: {}", hint).dimmed());
-            }
-        }
-        println!();
+pub fn print_category(checks: &[CheckResult], verbose: bool) {
+    if checks.is_empty() {
+        return;
     }
+
+    println!("  {}", checks[0].category.label().white().bold());
+    println!();
+
+    for check in checks {
+        let status_str = format!(" {:4} ", check.status);
+        let colored_status = match check.status {
+            Status::Pass => status_str.green().bold(),
+            Status::Warn => status_str.yellow().bold(),
+            Status::Fail => status_str.red().bold(),
+            Status::Skip => status_str.dimmed(),
+        };
+
+        println!(
+            "  {}  {:<34}  {}",
+            colored_status, check.name, check.message
+        );
+
+        if verbose {
+            if let Some(detail) = &check.detail {
+                println!("  {}  {}", "      ", detail.dimmed());
+            }
+        }
+
+        if let (Status::Warn | Status::Fail, Some(hint)) =
+            (check.status, &check.fix_hint)
+        {
+            println!("  {}  {}", "      ", format!("Hint: {}", hint).dimmed());
+        }
+    }
+    println!();
 }
 
 pub fn print_summary(results: &[CheckResult], is_root: bool) {
