@@ -2,7 +2,12 @@ use crate::check::{Category, CheckResult};
 use crate::runner::run_command;
 
 pub fn run_checks() -> Vec<CheckResult> {
-    vec![check_sip(), check_gatekeeper(), check_secure_boot()]
+    vec![
+        check_sip(),
+        check_gatekeeper(),
+        check_secure_boot(),
+        check_custom_certificates(),
+    ]
 }
 
 fn check_sip() -> CheckResult {
@@ -75,6 +80,49 @@ fn check_secure_boot() -> CheckResult {
             Category::SystemProtection,
             "Secure Boot",
             "Not available (Intel Mac or could not determine)",
+        ),
+    }
+}
+
+fn check_custom_certificates() -> CheckResult {
+    // Check for user-added trust settings (custom CA certificates)
+    match run_command("security", &["dump-trust-settings", "-d"]) {
+        Ok(output) => {
+            let count = output
+                .lines()
+                .filter(|l| l.starts_with("Cert "))
+                .count();
+
+            if count == 0 {
+                CheckResult::pass(
+                    Category::SystemProtection,
+                    "Custom Certificates",
+                    "No user-added trust settings",
+                )
+                .with_weight(5)
+            } else {
+                CheckResult::warn(
+                    Category::SystemProtection,
+                    "Custom Certificates",
+                    &format!("{} custom certificate(s) in trust store", count),
+                )
+                .with_weight(5)
+                .with_fix_hint("Review custom CAs in Keychain Access > System > Certificates")
+                .with_detail("Custom CAs could indicate corporate proxy or MITM configuration")
+            }
+        }
+        Err(e) if e.contains("No Trust Settings") || e.contains("SecTrustSettings") => {
+            CheckResult::pass(
+                Category::SystemProtection,
+                "Custom Certificates",
+                "No custom trust settings found",
+            )
+            .with_weight(5)
+        }
+        Err(_) => CheckResult::skip(
+            Category::SystemProtection,
+            "Custom Certificates",
+            "Could not check trust store",
         ),
     }
 }
