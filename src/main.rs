@@ -97,32 +97,35 @@ fn gather_system_info() -> String {
     format!("{} ({}) -- {} {}", model, chip, os_name, os_version)
 }
 
-fn all_check_batches(ctx: &Context, hw_output: &str) -> Vec<Vec<CheckResult>> {
-    vec![
-        checks::system::run_checks(hw_output),
-        checks::encryption::run_checks(),
-        checks::firewall::run_checks(),
-        checks::malware::run_checks(),
-        checks::updates::run_checks(),
-        checks::network::run_checks(ctx),
-        checks::hardware::run_checks(hw_output),
-        checks::user_security::run_checks(),
-        checks::privacy::run_checks(),
-    ]
+fn run_all_checks(ctx: &Context, hw_output: &str) -> Vec<CheckResult> {
+    let mut results = Vec::new();
+    results.extend(checks::system::run_checks(hw_output));
+    results.extend(checks::encryption::run_checks());
+    results.extend(checks::firewall::run_checks());
+    results.extend(checks::malware::run_checks());
+    results.extend(checks::updates::run_checks());
+    results.extend(checks::network::run_checks(ctx));
+    results.extend(checks::hardware::run_checks(hw_output));
+    results.extend(checks::user_security::run_checks());
+    results.extend(checks::privacy::run_checks());
+    results
 }
 
 fn main() {
     let cli = Cli::parse();
     let ctx = Context::detect();
+
+    // Print header before slow commands so user sees something immediately
+    if !cli.json && !cli.list {
+        output::print_header(&gather_system_info());
+    }
+
     let hw_output = runner::run_command("system_profiler", &["SPHardwareDataType"])
         .unwrap_or_default();
 
     if cli.list {
         println!("Available checks:\n");
-        let results: Vec<CheckResult> = all_check_batches(&ctx, &hw_output)
-            .into_iter()
-            .flatten()
-            .collect();
+        let results = run_all_checks(&ctx, &hw_output);
         for cat in Category::all() {
             let count = results.iter().filter(|r| r.category == *cat).count();
             println!("  {} ({} checks)", cat.label(), count);
@@ -138,10 +141,7 @@ fn main() {
 
     // JSON mode: collect everything, then output
     if cli.json {
-        let mut results: Vec<CheckResult> = all_check_batches(&ctx, &hw_output)
-            .into_iter()
-            .flatten()
-            .collect();
+        let mut results = run_all_checks(&ctx, &hw_output);
         if let Some(ref f) = filter {
             results.retain(|r| r.category.matches_filter(f));
         }
@@ -155,11 +155,9 @@ fn main() {
         return;
     }
 
-    // Terminal mode: print each category as it completes
-    output::print_header(&gather_system_info());
-
+    // Terminal mode: run and print each category as it completes
     let mut results = Vec::new();
-    for batch in all_check_batches(&ctx, &hw_output) {
+    let mut run = |batch: Vec<CheckResult>| {
         let batch: Vec<CheckResult> = if let Some(ref f) = filter {
             batch.into_iter().filter(|r| r.category.matches_filter(f)).collect()
         } else {
@@ -167,7 +165,17 @@ fn main() {
         };
         output::print_category(&batch, cli.verbose);
         results.extend(batch);
-    }
+    };
+
+    run(checks::system::run_checks(&hw_output));
+    run(checks::encryption::run_checks());
+    run(checks::firewall::run_checks());
+    run(checks::malware::run_checks());
+    run(checks::updates::run_checks());
+    run(checks::network::run_checks(&ctx));
+    run(checks::hardware::run_checks(&hw_output));
+    run(checks::user_security::run_checks());
+    run(checks::privacy::run_checks());
 
     output::print_summary(&results, ctx.is_root);
 
