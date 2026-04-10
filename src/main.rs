@@ -58,13 +58,15 @@ fn gather_system_info() -> String {
     format!("{} ({}) -- {} {}", model, chip, os_name, os_version)
 }
 
-fn run_all_checks(_ctx: &Context) -> Vec<CheckResult> {
+fn run_all_checks(ctx: &Context) -> Vec<CheckResult> {
     let mut results = Vec::new();
     results.extend(checks::system::run_checks());
     results.extend(checks::encryption::run_checks());
     results.extend(checks::firewall::run_checks());
     results.extend(checks::malware::run_checks());
     results.extend(checks::updates::run_checks());
+    results.extend(checks::network::run_checks(ctx));
+    results.extend(checks::hardware::run_checks());
     results
 }
 
