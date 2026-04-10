@@ -67,6 +67,8 @@ fn run_all_checks(ctx: &Context) -> Vec<CheckResult> {
     results.extend(checks::updates::run_checks());
     results.extend(checks::network::run_checks(ctx));
     results.extend(checks::hardware::run_checks());
+    results.extend(checks::user_security::run_checks());
+    results.extend(checks::privacy::run_checks());
     results
 }
 

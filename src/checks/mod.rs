@@ -5,3 +5,5 @@ pub mod malware;
 pub mod updates;
 pub mod network;
 pub mod hardware;
+pub mod user_security;
+pub mod privacy;
