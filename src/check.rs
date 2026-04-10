@@ -86,52 +86,33 @@ pub struct CheckResult {
 }
 
 impl CheckResult {
-    pub fn pass(category: Category, name: &str, message: &str) -> Self {
+    fn new(status: Status, category: Category, name: &str, message: &str) -> Self {
+        let weight = if status == Status::Skip { 0 } else { 5 };
         Self {
             category,
             name: name.to_string(),
-            status: Status::Pass,
+            status,
             message: message.to_string(),
             detail: None,
             fix_hint: None,
-            weight: 5,
+            weight,
         }
+    }
+
+    pub fn pass(category: Category, name: &str, message: &str) -> Self {
+        Self::new(Status::Pass, category, name, message)
     }
 
     pub fn warn(category: Category, name: &str, message: &str) -> Self {
-        Self {
-            category,
-            name: name.to_string(),
-            status: Status::Warn,
-            message: message.to_string(),
-            detail: None,
-            fix_hint: None,
-            weight: 5,
-        }
+        Self::new(Status::Warn, category, name, message)
     }
 
     pub fn fail(category: Category, name: &str, message: &str) -> Self {
-        Self {
-            category,
-            name: name.to_string(),
-            status: Status::Fail,
-            message: message.to_string(),
-            detail: None,
-            fix_hint: None,
-            weight: 5,
-        }
+        Self::new(Status::Fail, category, name, message)
     }
 
     pub fn skip(category: Category, name: &str, message: &str) -> Self {
-        Self {
-            category,
-            name: name.to_string(),
-            status: Status::Skip,
-            message: message.to_string(),
-            detail: None,
-            fix_hint: None,
-            weight: 0,
-        }
+        Self::new(Status::Skip, category, name, message)
     }
 
     pub fn with_weight(mut self, weight: u32) -> Self {

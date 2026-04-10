@@ -1,4 +1,5 @@
-use std::process::Command;
+use std::io::Read;
+use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -24,58 +25,46 @@ pub fn run_command(cmd: &str, args: &[&str]) -> Result<String, String> {
 pub fn run_command_timeout(cmd: &str, args: &[&str], timeout: Duration) -> Result<String, String> {
     let mut child = Command::new(cmd)
         .args(args)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to run {}: {}", cmd, e))?;
 
-    let (tx, rx) = mpsc::channel();
-    let child_id = child.id();
+    // Take pipes before moving child into the wait thread
+    let mut stdout_pipe = child.stdout.take();
+    let mut stderr_pipe = child.stderr.take();
 
+    let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
-        std::thread::sleep(timeout);
-        let _ = tx.send(child_id);
+        let _ = tx.send(child.wait());
     });
 
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let stdout = {
-                    use std::io::Read;
-                    let mut buf = String::new();
-                    if let Some(mut out) = child.stdout.take() {
-                        let _ = out.read_to_string(&mut buf);
-                    }
-                    buf
-                };
-                let stderr = {
-                    use std::io::Read;
-                    let mut buf = String::new();
-                    if let Some(mut err) = child.stderr.take() {
-                        let _ = err.read_to_string(&mut buf);
-                    }
-                    buf
-                };
+    let status = rx
+        .recv_timeout(timeout)
+        .map_err(|_| format!("{} timed out after {:?}", cmd, timeout))?
+        .map_err(|e| format!("Failed to wait for {}: {}", cmd, e))?;
 
-                if status.success() || !stdout.is_empty() {
-                    return Ok(stdout);
-                } else {
-                    return Err(stderr);
-                }
-            }
-            Ok(None) => {
-                if rx.try_recv().is_ok() {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(format!("{} timed out after {:?}", cmd, timeout));
-                }
-                std::thread::sleep(Duration::from_millis(50));
-            }
-            Err(e) => return Err(format!("Failed to wait for {}: {}", cmd, e)),
-        }
+    let stdout = read_pipe(&mut stdout_pipe);
+    let stderr = read_pipe(&mut stderr_pipe);
+
+    // Prefer stdout; fall back to stderr (some macOS tools write results to stderr)
+    let output = if !stdout.is_empty() { stdout } else { stderr };
+
+    if status.success() || !output.is_empty() {
+        Ok(output)
+    } else {
+        Err(format!("{} exited with {}", cmd, status))
     }
 }
 
 pub fn run_defaults_read(domain: &str, key: &str) -> Result<String, String> {
     run_command("defaults", &["read", domain, key])
+}
+
+fn read_pipe(pipe: &mut Option<impl Read>) -> String {
+    let mut buf = String::new();
+    if let Some(p) = pipe.as_mut() {
+        let _ = p.read_to_string(&mut buf);
+    }
+    buf
 }

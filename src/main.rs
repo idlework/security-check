@@ -7,6 +7,7 @@ mod scoring;
 use check::{Category, CheckResult, Status};
 use clap::Parser;
 use runner::Context;
+use scoring::Score;
 use serde::Serialize;
 
 #[derive(Parser)]
@@ -46,6 +47,20 @@ struct JsonSummary {
     skipped: usize,
     score_pct: u32,
     grade: String,
+}
+
+impl JsonSummary {
+    fn from_results(results: &[CheckResult]) -> Self {
+        let score = Score::from_results(results);
+        Self {
+            passed: results.iter().filter(|r| r.status == Status::Pass).count(),
+            warnings: results.iter().filter(|r| r.status == Status::Warn).count(),
+            failures: results.iter().filter(|r| r.status == Status::Fail).count(),
+            skipped: results.iter().filter(|r| r.status == Status::Skip).count(),
+            score_pct: score.percentage(),
+            grade: score.grade().to_string(),
+        }
+    }
 }
 
 fn gather_system_info() -> String {
@@ -96,9 +111,9 @@ fn main() {
 
     if cli.list {
         println!("Available checks:\n");
+        let results = run_all_checks(&ctx);
         for cat in Category::all() {
-            let dummy_results = run_all_checks(&ctx);
-            let count = dummy_results.iter().filter(|r| r.category == *cat).count();
+            let count = results.iter().filter(|r| r.category == *cat).count();
             println!("  {} ({} checks)", cat.label(), count);
         }
         return;
@@ -106,43 +121,22 @@ fn main() {
 
     let mut results = run_all_checks(&ctx);
 
-    if let Some(ref category_filter) = cli.category {
-        let filter_lower = category_filter.to_lowercase().replace([' ', '-'], "_");
-        results.retain(|r| {
-            let cat_str = format!("{:?}", r.category).to_lowercase();
-            cat_str.contains(&filter_lower)
-        });
+    if let Some(ref filter) = cli.category {
+        let filter = filter.to_lowercase().replace([' ', '-'], "_");
+        results.retain(|r| format!("{:?}", r.category).to_lowercase().contains(&filter));
     }
 
     if cli.json {
-        let system_info = gather_system_info();
-        let (score, possible) = scoring::calculate_score(&results);
-        let pct = if possible > 0 {
-            (score as f64 / possible as f64 * 100.0).round() as u32
-        } else {
-            0
-        };
-
         let report = JsonReport {
-            system_info,
-            summary: JsonSummary {
-                passed: results.iter().filter(|r| r.status == Status::Pass).count(),
-                warnings: results.iter().filter(|r| r.status == Status::Warn).count(),
-                failures: results.iter().filter(|r| r.status == Status::Fail).count(),
-                skipped: results.iter().filter(|r| r.status == Status::Skip).count(),
-                score_pct: pct,
-                grade: scoring::grade(pct).to_string(),
-            },
+            system_info: gather_system_info(),
+            summary: JsonSummary::from_results(&results),
             checks: results,
         };
-
-        let json = serde_json::to_string_pretty(&report).unwrap_or_default();
-        println!("{}", json);
+        println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
         return;
     }
 
-    let system_info = gather_system_info();
-    output::print_header(&system_info);
+    output::print_header(&gather_system_info());
     output::print_results(&results, cli.verbose);
     output::print_summary(&results, ctx.is_root);
 }

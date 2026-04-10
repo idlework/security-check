@@ -1,5 +1,5 @@
 use crate::check::{Category, CheckResult, Status};
-use crate::scoring::{calculate_score, grade};
+use crate::scoring::Score;
 use colored::Colorize;
 
 pub fn print_header(system_info: &str) {
@@ -13,7 +13,8 @@ pub fn print_header(system_info: &str) {
 
 pub fn print_results(results: &[CheckResult], verbose: bool) {
     for category in Category::all() {
-        let checks: Vec<&CheckResult> = results.iter().filter(|r| r.category == *category).collect();
+        let checks: Vec<&CheckResult> =
+            results.iter().filter(|r| r.category == *category).collect();
         if checks.is_empty() {
             continue;
         }
@@ -30,8 +31,10 @@ pub fn print_results(results: &[CheckResult], verbose: bool) {
                 Status::Skip => status_str.dimmed(),
             };
 
-            let name = format!("{:<34}", check.name);
-            println!("  {}  {}  {}", colored_status, name, check.message);
+            println!(
+                "  {}  {:<34}  {}",
+                colored_status, check.name, check.message
+            );
 
             if verbose {
                 if let Some(detail) = &check.detail {
@@ -39,14 +42,10 @@ pub fn print_results(results: &[CheckResult], verbose: bool) {
                 }
             }
 
-            if matches!(check.status, Status::Warn | Status::Fail) {
-                if let Some(hint) = &check.fix_hint {
-                    println!(
-                        "  {}  {}",
-                        "      ",
-                        format!("Hint: {}", hint).dimmed()
-                    );
-                }
+            if let (Status::Warn | Status::Fail, Some(hint)) =
+                (check.status, &check.fix_hint)
+            {
+                println!("  {}  {}", "      ", format!("Hint: {}", hint).dimmed());
             }
         }
         println!();
@@ -59,34 +58,31 @@ pub fn print_summary(results: &[CheckResult], is_root: bool) {
     let failed = results.iter().filter(|r| r.status == Status::Fail).count();
     let skipped = results.iter().filter(|r| r.status == Status::Skip).count();
 
-    let (score, possible) = calculate_score(results);
-    let pct = if possible > 0 {
-        (score as f64 / possible as f64 * 100.0).round() as u32
-    } else {
-        0
-    };
-    let letter = grade(pct);
+    let score = Score::from_results(results);
+    let pct = score.percentage();
 
     println!("  {}", "Summary".white().bold());
     println!();
-
-    let summary = format!(
+    println!(
         "  {} passed  {} warnings  {} failures  {} skipped",
         passed.to_string().green().bold(),
         warned.to_string().yellow().bold(),
         failed.to_string().red().bold(),
         skipped.to_string().dimmed(),
     );
-    println!("{}", summary);
     println!();
 
-    let score_line = format!("  Score: {}% ({}) -- {}/{} points", pct, letter, score, possible);
-    let colored_score = if pct >= 90 {
-        score_line.green().bold()
-    } else if pct >= 70 {
-        score_line.yellow().bold()
-    } else {
-        score_line.red().bold()
+    let score_line = format!(
+        "  Score: {}% ({}) -- {}/{} points",
+        pct,
+        score.grade(),
+        score.earned,
+        score.possible
+    );
+    let colored_score = match pct {
+        90..=100 => score_line.green().bold(),
+        70..=89 => score_line.yellow().bold(),
+        _ => score_line.red().bold(),
     };
     println!("{}", colored_score);
 

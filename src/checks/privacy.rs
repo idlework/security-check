@@ -4,170 +4,98 @@ use std::fs;
 use std::path::Path;
 
 pub fn run_checks() -> Vec<CheckResult> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+
     vec![
         check_airdrop(),
-        check_user_launch_agents(),
-        check_system_launch_daemons(),
+        list_plists(
+            &format!("{}/Library/LaunchAgents", home),
+            "User Launch Agents",
+            |_| true,
+        ),
+        list_plists(
+            "/Library/LaunchDaemons",
+            "Third-Party Launch Daemons",
+            |name| !name.starts_with("com.apple."),
+        ),
         check_analytics_sharing(),
     ]
 }
 
 fn check_airdrop() -> CheckResult {
     match run_defaults_read("com.apple.sharingd", "DiscoverableMode") {
-        Ok(output) => {
-            let mode = output.trim();
-            match mode {
-                "Off" => CheckResult::pass(Category::Privacy, "AirDrop", "AirDrop is off")
-                    .with_weight(3),
-                "Contacts Only" | "ContactsOnly" => {
-                    CheckResult::pass(Category::Privacy, "AirDrop", "AirDrop set to Contacts Only")
-                        .with_weight(3)
-                }
-                "Everyone" => {
-                    CheckResult::warn(Category::Privacy, "AirDrop", "AirDrop is set to Everyone")
-                        .with_weight(3)
-                        .with_fix_hint(
-                            "Set to 'Contacts Only' in Control Center or System Settings",
-                        )
-                }
-                other => CheckResult::pass(
-                    Category::Privacy,
-                    "AirDrop",
-                    &format!("AirDrop mode: {}", other),
-                )
-                .with_weight(3),
+        Ok(output) => match output.trim() {
+            "Off" => {
+                CheckResult::pass(Category::Privacy, "AirDrop", "AirDrop is off").with_weight(3)
             }
-        }
-        Err(_) => {
-            // Not configured = likely default (Contacts Only on modern macOS)
-            CheckResult::pass(
+            "Contacts Only" | "ContactsOnly" => {
+                CheckResult::pass(Category::Privacy, "AirDrop", "AirDrop set to Contacts Only")
+                    .with_weight(3)
+            }
+            "Everyone" => {
+                CheckResult::warn(Category::Privacy, "AirDrop", "AirDrop is set to Everyone")
+                    .with_weight(3)
+                    .with_fix_hint("Set to 'Contacts Only' in Control Center or System Settings")
+            }
+            other => CheckResult::pass(
                 Category::Privacy,
                 "AirDrop",
-                "AirDrop using default settings",
+                &format!("AirDrop mode: {}", other),
             )
-            .with_weight(3)
+            .with_weight(3),
+        },
+        Err(_) => {
+            CheckResult::pass(Category::Privacy, "AirDrop", "AirDrop using default settings")
+                .with_weight(3)
         }
     }
 }
 
-fn check_user_launch_agents() -> CheckResult {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    let path = format!("{}/Library/LaunchAgents", home);
-    let dir = Path::new(&path);
+fn list_plists(dir_path: &str, name: &str, filter: fn(&str) -> bool) -> CheckResult {
+    let dir = Path::new(dir_path);
 
     if !dir.exists() {
-        return CheckResult::pass(
-            Category::Privacy,
-            "User Launch Agents",
-            "No user Launch Agents directory",
-        )
-        .with_weight(0);
+        return CheckResult::pass(Category::Privacy, name, &format!("No {} directory", name))
+            .with_weight(0);
     }
 
-    match fs::read_dir(dir) {
-        Ok(entries) => {
-            let agents: Vec<String> = entries
-                .filter_map(|e| e.ok())
-                .map(|e| e.file_name().to_string_lossy().to_string())
-                .filter(|name| name.ends_with(".plist"))
-                .collect();
-
-            if agents.is_empty() {
-                CheckResult::pass(
-                    Category::Privacy,
-                    "User Launch Agents",
-                    "No user Launch Agents installed",
-                )
-                .with_weight(0)
-            } else {
-                let detail = agents
-                    .iter()
-                    .take(5)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                let suffix = if agents.len() > 5 {
-                    format!(" (+{} more)", agents.len() - 5)
-                } else {
-                    String::new()
-                };
-
-                CheckResult::pass(
-                    Category::Privacy,
-                    "User Launch Agents",
-                    &format!("{} agent(s): {}{}", agents.len(), detail, suffix),
-                )
-                .with_weight(0)
-                .with_detail("Review these for any unexpected or suspicious entries")
-            }
+    let entries: Vec<String> = match fs::read_dir(dir) {
+        Ok(rd) => rd
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .filter(|n| n.ends_with(".plist") && filter(n))
+            .collect(),
+        Err(_) => {
+            return CheckResult::skip(
+                Category::Privacy,
+                name,
+                &format!("Could not read {} directory", name),
+            )
         }
-        Err(_) => CheckResult::skip(
-            Category::Privacy,
-            "User Launch Agents",
-            "Could not read Launch Agents directory",
-        ),
-    }
-}
+    };
 
-fn check_system_launch_daemons() -> CheckResult {
-    let dir = Path::new("/Library/LaunchDaemons");
-
-    if !dir.exists() {
-        return CheckResult::pass(
-            Category::Privacy,
-            "Third-Party Launch Daemons",
-            "No third-party Launch Daemons directory",
-        )
-        .with_weight(0);
+    if entries.is_empty() {
+        return CheckResult::pass(Category::Privacy, name, &format!("No {} found", name))
+            .with_weight(0);
     }
 
-    match fs::read_dir(dir) {
-        Ok(entries) => {
-            let non_apple: Vec<String> = entries
-                .filter_map(|e| e.ok())
-                .map(|e| e.file_name().to_string_lossy().to_string())
-                .filter(|name| name.ends_with(".plist") && !name.starts_with("com.apple."))
-                .collect();
+    let display: String = entries.iter().take(5).cloned().collect::<Vec<_>>().join(", ");
+    let suffix = if entries.len() > 5 {
+        format!(" (+{} more)", entries.len() - 5)
+    } else {
+        String::new()
+    };
 
-            if non_apple.is_empty() {
-                CheckResult::pass(
-                    Category::Privacy,
-                    "Third-Party Launch Daemons",
-                    "No third-party Launch Daemons found",
-                )
-                .with_weight(0)
-            } else {
-                let detail = non_apple
-                    .iter()
-                    .take(5)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                let suffix = if non_apple.len() > 5 {
-                    format!(" (+{} more)", non_apple.len() - 5)
-                } else {
-                    String::new()
-                };
-
-                CheckResult::pass(
-                    Category::Privacy,
-                    "Third-Party Launch Daemons",
-                    &format!("{} daemon(s): {}{}", non_apple.len(), detail, suffix),
-                )
-                .with_weight(0)
-                .with_detail("Review these for any unexpected or suspicious entries")
-            }
-        }
-        Err(_) => CheckResult::skip(
-            Category::Privacy,
-            "Third-Party Launch Daemons",
-            "Could not read Launch Daemons directory",
-        ),
-    }
+    CheckResult::pass(
+        Category::Privacy,
+        name,
+        &format!("{} item(s): {}{}", entries.len(), display, suffix),
+    )
+    .with_weight(0)
+    .with_detail("Review these for any unexpected or suspicious entries")
 }
 
 fn check_analytics_sharing() -> CheckResult {
-    // Check if diagnostic data sharing is enabled
     match run_command(
         "defaults",
         &[
@@ -176,31 +104,19 @@ fn check_analytics_sharing() -> CheckResult {
             "AutoSubmit",
         ],
     ) {
-        Ok(output) => {
-            if output.trim() == "0" {
-                CheckResult::pass(
-                    Category::Privacy,
-                    "Analytics Sharing",
-                    "Diagnostic data sharing is disabled",
-                )
+        Ok(output) if output.trim() == "0" => {
+            CheckResult::pass(Category::Privacy, "Analytics Sharing", "Diagnostic data sharing is disabled")
                 .with_weight(3)
-            } else {
-                CheckResult::warn(
-                    Category::Privacy,
-                    "Analytics Sharing",
-                    "Diagnostic data sharing is enabled",
-                )
+        }
+        Ok(_) => {
+            CheckResult::warn(Category::Privacy, "Analytics Sharing", "Diagnostic data sharing is enabled")
                 .with_weight(3)
                 .with_fix_hint("Disable in System Settings > Privacy & Security > Analytics & Improvements")
-            }
         }
-        Err(_) => {
-            // Can't determine -- skip
-            CheckResult::skip(
-                Category::Privacy,
-                "Analytics Sharing",
-                "Could not determine analytics sharing status",
-            )
-        }
+        Err(_) => CheckResult::skip(
+            Category::Privacy,
+            "Analytics Sharing",
+            "Could not determine analytics sharing status",
+        ),
     }
 }
