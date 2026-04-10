@@ -10,6 +10,7 @@ pub fn run_checks(ctx: &Context) -> Vec<CheckResult> {
         check_sharing_service(&services, "com.apple.screensharing", "Screen Sharing"),
         check_remote_management(),
         check_dns(),
+        check_listening_ports(),
     ]
 }
 
@@ -99,6 +100,77 @@ fn check_dns() -> CheckResult {
             Category::Network,
             "DNS Configuration",
             "Could not check DNS settings",
+        ),
+    }
+}
+
+fn check_listening_ports() -> CheckResult {
+    match run_command("lsof", &["-iTCP", "-sTCP:LISTEN", "-nP"]) {
+        Ok(output) => {
+            const KNOWN_SAFE: &[&str] = &[
+                "rapportd",
+                "ControlCe",
+                "UserEvent",
+                "SystemUIServer",
+                "sharingd",
+                "remoted",
+                "WiFiAgent",
+            ];
+
+            let mut listeners: Vec<String> = Vec::new();
+            for line in output.lines().skip(1) {
+                let fields: Vec<&str> = line.split_whitespace().collect();
+                if fields.len() < 9 {
+                    continue;
+                }
+                let process = fields[0];
+                let addr = fields[8];
+                let port = addr.rsplit(':').next().unwrap_or("?");
+                let entry = format!("{}:{}", process, port);
+                if !listeners.contains(&entry) {
+                    listeners.push(entry);
+                }
+            }
+
+            let unexpected: Vec<&String> = listeners
+                .iter()
+                .filter(|l| !KNOWN_SAFE.iter().any(|s| l.starts_with(s)))
+                .collect();
+
+            if listeners.is_empty() {
+                CheckResult::pass(
+                    Category::Network,
+                    "Listening Ports",
+                    "No TCP listeners found",
+                )
+                .with_weight(3)
+            } else if unexpected.is_empty() {
+                CheckResult::pass(
+                    Category::Network,
+                    "Listening Ports",
+                    &format!("{} listener(s), all known services", listeners.len()),
+                )
+                .with_weight(3)
+            } else {
+                let display: String = unexpected.iter().take(5).map(|s| s.as_str()).collect::<Vec<_>>().join(", ");
+                let suffix = if unexpected.len() > 5 {
+                    format!(" (+{} more)", unexpected.len() - 5)
+                } else {
+                    String::new()
+                };
+                CheckResult::warn(
+                    Category::Network,
+                    "Listening Ports",
+                    &format!("{} unexpected: {}{}", unexpected.len(), display, suffix),
+                )
+                .with_weight(3)
+                .with_detail(&listeners.join(", "))
+            }
+        }
+        Err(_) => CheckResult::skip(
+            Category::Network,
+            "Listening Ports",
+            "Could not check listening ports",
         ),
     }
 }
