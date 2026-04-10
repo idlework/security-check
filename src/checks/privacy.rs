@@ -18,6 +18,7 @@ pub fn run_checks() -> Vec<CheckResult> {
             "Third-Party Launch Daemons",
             |name| !name.starts_with("com.apple."),
         ),
+        check_login_items(),
         check_analytics_sharing(),
     ]
 }
@@ -93,6 +94,45 @@ fn list_plists(dir_path: &str, name: &str, filter: fn(&str) -> bool) -> CheckRes
     )
     .with_weight(0)
     .with_detail("Review these for any unexpected or suspicious entries")
+}
+
+fn check_login_items() -> CheckResult {
+    match run_command(
+        "osascript",
+        &["-e", "tell application \"System Events\" to get the name of every login item"],
+    ) {
+        Ok(output) => {
+            let items: Vec<&str> = output
+                .trim()
+                .split(", ")
+                .filter(|s| !s.is_empty())
+                .collect();
+
+            if items.is_empty() {
+                CheckResult::pass(Category::Privacy, "Login Items", "No login items configured")
+                    .with_weight(0)
+            } else {
+                let display = items.iter().take(5).copied().collect::<Vec<_>>().join(", ");
+                let suffix = if items.len() > 5 {
+                    format!(" (+{} more)", items.len() - 5)
+                } else {
+                    String::new()
+                };
+                CheckResult::pass(
+                    Category::Privacy,
+                    "Login Items",
+                    &format!("{} item(s): {}{}", items.len(), display, suffix),
+                )
+                .with_weight(0)
+                .with_detail("Review these for any unexpected applications")
+            }
+        }
+        Err(_) => CheckResult::skip(
+            Category::Privacy,
+            "Login Items",
+            "Could not query login items",
+        ),
+    }
 }
 
 fn check_analytics_sharing() -> CheckResult {
