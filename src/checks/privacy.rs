@@ -167,7 +167,7 @@ fn check_tcc(home: &str, name: &str, service: &str) -> CheckResult {
             CheckResult::skip(
                 Category::Privacy,
                 name,
-                &format!("TCC database not accessible (requires Full Disk Access)"),
+                "TCC database not accessible (requires Full Disk Access)",
             )
         }
         Ok(output) => {

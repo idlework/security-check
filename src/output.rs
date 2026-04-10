@@ -37,14 +37,14 @@ pub fn print_category(checks: &[CheckResult], verbose: bool) {
 
         if verbose {
             if let Some(detail) = &check.detail {
-                println!("  {}  {}", "      ", detail.dimmed());
+                println!("        {}", detail.dimmed());
             }
         }
 
         if let (Status::Warn | Status::Fail, Some(hint)) =
             (check.status, &check.fix_hint)
         {
-            println!("  {}  {}", "      ", format!("Hint: {}", hint).dimmed());
+            println!("        {}", format!("Hint: {}", hint).dimmed());
         }
     }
     println!();
