@@ -1,8 +1,12 @@
 use crate::check::{Category, CheckResult};
 use crate::runner::{run_command, Context};
+use std::fs;
+use std::path::Path;
 
 pub fn run_checks(ctx: &Context) -> Vec<CheckResult> {
     let services = run_command("launchctl", &["list"]).unwrap_or_default();
+
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
 
     vec![
         check_ssh(ctx),
@@ -11,6 +15,8 @@ pub fn run_checks(ctx: &Context) -> Vec<CheckResult> {
         check_remote_management(),
         check_dns(),
         check_listening_ports(),
+        check_ssh_keys(&home),
+        check_authorized_keys(&home),
     ]
 }
 
@@ -171,6 +177,105 @@ fn check_listening_ports() -> CheckResult {
             Category::Network,
             "Listening Ports",
             "Could not check listening ports",
+        ),
+    }
+}
+
+fn check_ssh_keys(home: &str) -> CheckResult {
+    let ssh_dir = Path::new(home).join(".ssh");
+    if !ssh_dir.exists() {
+        return CheckResult::pass(Category::Network, "SSH Keys", "No SSH directory found")
+            .with_weight(3);
+    }
+
+    let pub_keys: Vec<String> = match fs::read_dir(&ssh_dir) {
+        Ok(entries) => entries
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".pub"))
+            .filter_map(|e| {
+                let content = fs::read_to_string(e.path()).ok()?;
+                let key_type = content.split_whitespace().next()?;
+                Some(format!(
+                    "{} ({})",
+                    e.file_name().to_string_lossy(),
+                    key_type.trim_start_matches("ssh-")
+                ))
+            })
+            .collect(),
+        Err(_) => {
+            return CheckResult::skip(
+                Category::Network,
+                "SSH Keys",
+                "Could not read ~/.ssh directory",
+            )
+        }
+    };
+
+    if pub_keys.is_empty() {
+        return CheckResult::pass(Category::Network, "SSH Keys", "No SSH public keys found")
+            .with_weight(3);
+    }
+
+    // Check for weak key types
+    let has_dsa = pub_keys.iter().any(|k| k.contains("(dss)") || k.contains("(dsa)"));
+    if has_dsa {
+        return CheckResult::warn(
+            Category::Network,
+            "SSH Keys",
+            &format!("{} key(s) found, includes weak DSA key", pub_keys.len()),
+        )
+        .with_weight(3)
+        .with_fix_hint("Replace DSA keys with Ed25519: ssh-keygen -t ed25519")
+        .with_detail(&pub_keys.join(", "));
+    }
+
+    CheckResult::pass(
+        Category::Network,
+        "SSH Keys",
+        &format!("{} key(s): {}", pub_keys.len(), pub_keys.join(", ")),
+    )
+    .with_weight(3)
+}
+
+fn check_authorized_keys(home: &str) -> CheckResult {
+    let auth_keys = Path::new(home).join(".ssh/authorized_keys");
+
+    if !auth_keys.exists() {
+        return CheckResult::pass(
+            Category::Network,
+            "Authorized Keys",
+            "No authorized_keys file",
+        )
+        .with_weight(3);
+    }
+
+    match fs::read_to_string(&auth_keys) {
+        Ok(content) => {
+            let count = content
+                .lines()
+                .filter(|l| !l.trim().is_empty() && !l.trim().starts_with('#'))
+                .count();
+            if count == 0 {
+                CheckResult::pass(
+                    Category::Network,
+                    "Authorized Keys",
+                    "authorized_keys is empty",
+                )
+                .with_weight(3)
+            } else {
+                CheckResult::warn(
+                    Category::Network,
+                    "Authorized Keys",
+                    &format!("{} authorized key(s) allow remote access", count),
+                )
+                .with_weight(3)
+                .with_fix_hint("Review ~/.ssh/authorized_keys for unexpected entries")
+            }
+        }
+        Err(_) => CheckResult::skip(
+            Category::Network,
+            "Authorized Keys",
+            "Could not read authorized_keys",
         ),
     }
 }
