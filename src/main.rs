@@ -1,5 +1,6 @@
 mod check;
 mod checks;
+mod diff;
 mod output;
 mod runner;
 mod scoring;
@@ -30,6 +31,10 @@ struct Cli {
     /// List all available checks without running them
     #[arg(long)]
     list: bool,
+
+    /// Show changes since last run
+    #[arg(long)]
+    diff: bool,
 }
 
 #[derive(Serialize)]
@@ -127,17 +132,26 @@ fn main() {
         results.retain(|r| r.category.matches_filter(&filter));
     }
 
+    let previous = if cli.diff { diff::load_previous() } else { None };
+
     if cli.json {
         let report = JsonReport {
             system_info: gather_system_info(),
             summary: JsonSummary::from_results(&results),
-            checks: results,
+            checks: results.clone(),
         };
         println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
+        diff::save_results(&results);
         return;
     }
 
     output::print_header(&gather_system_info());
     output::print_results(&results, cli.verbose);
     output::print_summary(&results, ctx.is_root);
+
+    if let Some(prev) = previous {
+        diff::print_diff(&results, &prev);
+    }
+
+    diff::save_results(&results);
 }
