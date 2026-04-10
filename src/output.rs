@@ -1,6 +1,7 @@
 use crate::check::{count_by_status, CheckResult, Status};
 use crate::scoring::Score;
 use colored::Colorize;
+use std::io::{self, Write};
 
 pub fn print_header(system_info: &str) {
     println!();
@@ -9,6 +10,7 @@ pub fn print_header(system_info: &str) {
         println!("  {}", system_info.dimmed());
     }
     println!();
+    let _ = io::stdout().flush();
 }
 
 pub fn print_category(checks: &[CheckResult], verbose: bool) {
@@ -46,6 +48,7 @@ pub fn print_category(checks: &[CheckResult], verbose: bool) {
         }
     }
     println!();
+    let _ = io::stdout().flush();
 }
 
 pub fn print_summary(results: &[CheckResult], is_root: bool) {
