@@ -20,6 +20,9 @@ pub fn run_checks() -> Vec<CheckResult> {
         ),
         check_login_items(),
         check_analytics_sharing(),
+        check_tcc("Accessibility Access", "kTCCServiceAccessibility"),
+        check_tcc("Screen Recording", "kTCCServiceScreenCapture"),
+        check_tcc("Full Disk Access", "kTCCServiceSystemPolicyAllFiles"),
     ]
 }
 
@@ -157,6 +160,56 @@ fn check_analytics_sharing() -> CheckResult {
             Category::Privacy,
             "Analytics Sharing",
             "Could not determine analytics sharing status",
+        ),
+    }
+}
+
+fn check_tcc(name: &str, service: &str) -> CheckResult {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let user_db = format!(
+        "{}/Library/Application Support/com.apple.TCC/TCC.db",
+        home
+    );
+
+    let query = format!(
+        "SELECT client FROM access WHERE service='{}' AND auth_value=2;",
+        service
+    );
+
+    match run_command("sqlite3", &[&user_db, &query]) {
+        Ok(output) => {
+            let apps: Vec<&str> = output
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .collect();
+
+            if apps.is_empty() {
+                CheckResult::pass(
+                    Category::Privacy,
+                    name,
+                    &format!("No apps with {} permission", name.to_lowercase()),
+                )
+                .with_weight(0)
+            } else {
+                let display: Vec<&str> = apps.iter().take(5).copied().collect();
+                let suffix = if apps.len() > 5 {
+                    format!(" (+{} more)", apps.len() - 5)
+                } else {
+                    String::new()
+                };
+                CheckResult::pass(
+                    Category::Privacy,
+                    name,
+                    &format!("{} app(s): {}{}", apps.len(), display.join(", "), suffix),
+                )
+                .with_weight(0)
+                .with_detail("Review these permissions in System Settings > Privacy & Security")
+            }
+        }
+        Err(_) => CheckResult::skip(
+            Category::Privacy,
+            name,
+            &format!("Could not query {} permissions", name.to_lowercase()),
         ),
     }
 }
