@@ -94,7 +94,7 @@ pub fn print_summary(results: &[CheckResult], is_root: bool) {
         println!();
         println!(
             "  {}",
-            "Run with sudo for complete results: sudo security-cli".dimmed()
+            "Run with sudo for complete results: sudo security-check".dimmed()
         );
     }
 

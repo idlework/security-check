@@ -10,7 +10,7 @@ use runner::Context;
 use serde::Serialize;
 
 #[derive(Parser)]
-#[command(name = "security-cli")]
+#[command(name = "security-check")]
 #[command(about = "macOS security audit tool")]
 #[command(version)]
 struct Cli {

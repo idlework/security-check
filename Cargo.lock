@@ -163,7 +163,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "security-cli"
+name = "security-check"
 version = "0.1.0"
 dependencies = [
  "clap",

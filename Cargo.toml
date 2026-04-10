@@ -1,5 +1,5 @@
 [package]
-name = "security-cli"
+name = "security-check"
 version = "0.1.0"
 edition = "2021"
 description = "macOS security audit CLI tool"

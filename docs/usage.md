@@ -5,17 +5,17 @@
 ```sh
 # Build and run
 cargo build --release
-./target/release/security-cli
+./target/release/security-check
 
 # Or install globally
-cp target/release/security-cli /usr/local/bin/
-security-cli
+cp target/release/security-check /usr/local/bin/
+security-check
 ```
 
 ## Command Line Options
 
 ```
-security-cli [OPTIONS]
+security-check [OPTIONS]
 
 Options:
       --json                 Output results as JSON
@@ -28,7 +28,7 @@ Options:
 
 ## Running Without sudo
 
-By default, `security-cli` runs without elevated privileges. Most checks work fine this way. Checks that require root access are marked as `SKIP` and excluded from your score.
+By default, `security-check` runs without elevated privileges. Most checks work fine this way. Checks that require root access are marked as `SKIP` and excluded from your score.
 
 ```
   SKIP   Remote Login (SSH)                  Requires sudo to check
@@ -37,7 +37,7 @@ By default, `security-cli` runs without elevated privileges. Most checks work fi
 The summary will suggest running with sudo if any checks were skipped:
 
 ```
-  Run with sudo for complete results: sudo security-cli
+  Run with sudo for complete results: sudo security-check
 ```
 
 ## Running With sudo
@@ -45,7 +45,7 @@ The summary will suggest running with sudo if any checks were skipped:
 To include all checks (like SSH status detection via `lsof`):
 
 ```sh
-sudo security-cli
+sudo security-check
 ```
 
 The tool never prompts for a password itself -- it simply detects whether it's running as root and adjusts accordingly.
@@ -68,7 +68,7 @@ Warnings and failures include a `Hint:` line explaining how to fix the issue.
 Adds extra detail lines below checks that have additional context:
 
 ```sh
-security-cli --verbose
+security-check --verbose
 ```
 
 This shows review notes for informational checks like Launch Agents and Launch Daemons.
@@ -78,7 +78,7 @@ This shows review notes for informational checks like Launch Agents and Launch D
 Outputs a structured JSON report suitable for scripting, monitoring, or piping to other tools:
 
 ```sh
-security-cli --json
+security-check --json
 ```
 
 The JSON structure:
@@ -109,13 +109,13 @@ Useful for:
 
 ```sh
 # Pretty-print
-security-cli --json | python3 -m json.tool
+security-check --json | python3 -m json.tool
 
 # Extract score
-security-cli --json | python3 -c "import sys,json; print(json.load(sys.stdin)['summary']['grade'])"
+security-check --json | python3 -c "import sys,json; print(json.load(sys.stdin)['summary']['grade'])"
 
 # List failures only
-security-cli --json | jq '.checks[] | select(.status == "fail")'
+security-check --json | jq '.checks[] | select(.status == "fail")'
 ```
 
 ### No Color
@@ -123,7 +123,7 @@ security-cli --json | jq '.checks[] | select(.status == "fail")'
 Colors are automatically disabled when output is piped. To explicitly disable:
 
 ```sh
-NO_COLOR=1 security-cli
+NO_COLOR=1 security-check
 ```
 
 ## Filtering by Category
@@ -131,10 +131,10 @@ NO_COLOR=1 security-cli
 Run checks for a single category:
 
 ```sh
-security-cli --category firewall
-security-cli --category malware
-security-cli --category network
-security-cli --category privacy
+security-check --category firewall
+security-check --category malware
+security-check --category network
+security-check --category privacy
 ```
 
 Category names are matched loosely -- `firewall`, `Firewall`, and `fire` all work.

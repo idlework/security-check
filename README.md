@@ -1,11 +1,11 @@
-# security-cli
+# security-check
 
 A macOS security audit tool that checks your system's security configuration and scores it. Inspired by [SilentKnight](https://eclecticlight.co/lockrattler-systhist) and Apple's [built-in security tools](https://www.huntress.com/blog/built-in-macos-security-tools).
 
 Run a single command to see what's properly configured and what could be improved -- no installs, no accounts, no data leaves your machine.
 
 ```
-$ security-cli
+$ security-check
 
   macOS Security Audit
   Mac14,9 (Apple M2 Pro) -- macOS 15.7.4
@@ -38,9 +38,9 @@ $ security-cli
 ## Install
 
 ```sh
-git clone <repo-url> && cd security-cli
+git clone <repo-url> && cd security-check
 cargo build --release
-cp target/release/security-cli /usr/local/bin/
+cp target/release/security-check /usr/local/bin/
 ```
 
 Requires [Rust](https://rustup.rs/) to build. Produces a single 1.2MB binary with no runtime dependencies.
@@ -50,11 +50,11 @@ Requires [Rust](https://rustup.rs/) to build. Produces a single 1.2MB binary wit
 See [docs/usage.md](docs/usage.md) for detailed documentation.
 
 ```sh
-security-cli              # run all checks
-security-cli --verbose    # show extra details and fix hints
-security-cli --json       # machine-readable JSON output
-security-cli --category firewall  # run one category only
-sudo security-cli         # include checks that require root
+security-check              # run all checks
+security-check --verbose    # show extra details and fix hints
+security-check --json       # machine-readable JSON output
+security-check --category firewall  # run one category only
+sudo security-check         # include checks that require root
 ```
 
 ## What it checks
