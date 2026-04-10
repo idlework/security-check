@@ -311,10 +311,26 @@ fn check_vpn() -> CheckResult {
 }
 
 fn find_active_network_service() -> Option<String> {
-    let output = run_command("networksetup", &["-listallnetworkservices"]).ok()?;
-    output
+    // Get the default route's network interface (e.g. "en0")
+    let route_output = run_command("route", &["-n", "get", "default"]).ok()?;
+    let interface = route_output
         .lines()
-        .skip(1) // Skip "An asterisk..." header
-        .find(|l| !l.starts_with('*') && !l.is_empty())
-        .map(|s| s.to_string())
+        .find(|l| l.contains("interface:"))?
+        .split(':')
+        .nth(1)?
+        .trim();
+
+    // Map interface to network service name
+    let services = run_command("networksetup", &["-listallhardwareports"]).ok()?;
+    let mut current_service = None;
+    for line in services.lines() {
+        if let Some(name) = line.strip_prefix("Hardware Port: ") {
+            current_service = Some(name.to_string());
+        } else if line.contains("Device:") && line.contains(interface) {
+            return current_service;
+        }
+    }
+
+    // Fallback to Wi-Fi
+    Some("Wi-Fi".to_string())
 }
