@@ -1,22 +1,14 @@
 use crate::check::{Category, CheckResult};
-use crate::runner::run_command;
+use crate::runner::{extract_field, run_command};
 use std::time::SystemTime;
 
 pub fn run_checks(hw_output: &str) -> Vec<CheckResult> {
     vec![
-        check_system_info(&hw_output),
-        check_activation_lock(&hw_output),
+        check_system_info(hw_output),
+        check_activation_lock(hw_output),
         check_time_machine(),
         check_backup_recency(),
     ]
-}
-
-fn extract_field<'a>(output: &'a str, field: &str) -> Option<&'a str> {
-    output
-        .lines()
-        .find(|l| l.contains(field))
-        .and_then(|l| l.split_once(':'))
-        .map(|(_, v)| v.trim())
 }
 
 fn check_system_info(hw_output: &str) -> CheckResult {

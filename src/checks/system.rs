@@ -1,5 +1,5 @@
 use crate::check::{Category, CheckResult};
-use crate::runner::run_command;
+use crate::runner::{extract_field, run_command};
 
 pub fn run_checks(hw_output: &str) -> Vec<CheckResult> {
     vec![
@@ -50,13 +50,7 @@ fn check_gatekeeper() -> CheckResult {
 }
 
 fn check_secure_boot(hw_output: &str) -> CheckResult {
-    let boot_mode = hw_output
-        .lines()
-        .find(|l| l.contains("Secure Boot"))
-        .and_then(|l| l.split_once(':'))
-        .map(|(_, v)| v.trim());
-
-    match boot_mode {
+    match extract_field(hw_output, "Secure Boot") {
         Some(s) if s.contains("Full") => {
             CheckResult::pass(
                 Category::SystemProtection,

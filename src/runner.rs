@@ -57,6 +57,14 @@ pub fn run_command_timeout(cmd: &str, args: &[&str], timeout: Duration) -> Resul
     }
 }
 
+pub fn extract_field<'a>(output: &'a str, field: &str) -> Option<&'a str> {
+    output
+        .lines()
+        .find(|l| l.contains(field))
+        .and_then(|l| l.split_once(':'))
+        .map(|(_, v)| v.trim())
+}
+
 pub fn run_defaults_read(domain: &str, key: &str) -> Result<String, String> {
     run_command("defaults", &["read", domain, key])
 }
