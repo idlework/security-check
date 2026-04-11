@@ -2,11 +2,15 @@
 
 A macOS security audit tool that checks your system's security configuration and scores it. Inspired by [SilentKnight](https://eclecticlight.co/lockrattler-systhist) and Apple's [built-in security tools](https://www.huntress.com/blog/built-in-macos-security-tools).
 
-Run a single command to see what's properly configured and what could be improved -- no installs, no accounts, no data leaves your machine.
+Run a single command to see what's properly configured and what could be improved. No installs, no accounts, no data leaves your machine.
 
 ![demo](demo.gif)
 
 ## Install
+
+Download binary from [releases](https://github.com/idlework/security-check/releases)
+
+Or build it from source:
 
 ```sh
 git clone <repo-url> && cd security-check
@@ -14,7 +18,7 @@ cargo build --release
 cp target/release/security-check /usr/local/bin/
 ```
 
-Requires [Rust](https://rustup.rs/) to build. Produces a single 1.2MB binary with no runtime dependencies.
+Requires [Rust](https://rustup.rs/) to build. Produces a single 0.5MB binary with no runtime dependencies.
 
 ## Usage
 
